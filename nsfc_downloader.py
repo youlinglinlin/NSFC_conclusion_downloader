@@ -1,12 +1,10 @@
 import os
+import re
 import json
 import argparse
-from glob import glob
 
 import img2pdf
 import requests
-
-import utils
 
 
 def arg_parser():
@@ -16,6 +14,13 @@ def arg_parser():
     parse.add_argument('--tmp_path', '-t', default='./tmp', help='The path you want to save tmp file')
     parse.add_argument('--out_path', '-o', default='./output', help='The path you want to save output PDF file')
     return parse.parse_args()
+
+
+def clean_filename(string: str) -> str:
+    string = string.replace(':', '_').replace('/', '_').replace('\x00', '_')
+    string = re.sub('[\n\\\*><?\"|\t]', '', string)
+    string = string.strip()
+    return string
 
 
 class NsfcDownloader:
@@ -43,13 +48,14 @@ class NsfcDownloader:
 
         ratify_prefix = ratify[:2]
         project_name = rj['data'].get('projectName')
-        out_pdf_file = os.path.join(self.out_path, utils.clean_filename('{} {}.pdf'.format(ratify, project_name)))
+        out_pdf_file = os.path.join(self.out_path, clean_filename('{} {}.pdf'.format(ratify, project_name)))
 
         if os.path.exists(out_pdf_file):
             print('PDF已存在 ，请打开 {}'.format(out_pdf_file))
         else:
             print('开始下载 {} {}'.format(ratify, project_name))
 
+            img_files_list = []
             img_bytes_list = []
 
             i = 1
@@ -67,6 +73,7 @@ class NsfcDownloader:
                     with open(tmp_file, 'wb') as tmp_f:
                         tmp_f.write(r.content)
 
+                img_files_list.append(tmp_file)
                 img_bytes_list.append(content)
                 i += 1
 
@@ -79,7 +86,7 @@ class NsfcDownloader:
                     file_.write(pdf)
 
                 print('移除临时文件')
-                for f in glob(os.path.join(self.tmp_path, '{}_*.png'.format(ratify))):
+                for f in img_files_list:
                     os.remove(f)
 
 
